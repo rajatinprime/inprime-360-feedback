@@ -6,7 +6,6 @@
   <title>InPrime Finserv · 360° Feedback</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -28,7 +27,6 @@
 
   <script type="text/babel">
     const { useState, useEffect } = React;
-    const { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } = Recharts;
 
     // ─── Mobile hook ─────────────────────────────────────────
     function useMobile() {
@@ -471,23 +469,41 @@
       );
     }
 
-    // ─── Radar View ───────────────────────────────────────────
+    // ─── Radar View (pure SVG, no external lib) ──────────────
     function RadarView({ selfScores, peerScores, person }) {
       const hasBoth=selfScores&&peerScores, src=selfScores||peerScores;
       if (!src) return <div style={{ background:"#0d1e1c", border:"1px solid #0f2520", borderRadius:20, padding:40, textAlign:"center" }}><div style={{ color:"#3a5a54", fontSize:14 }}>No data yet — submit feedback to see the radar.</div></div>;
-      const data = PARAMS.map(p => ({ p:p.label.length>13?p.label.slice(0,12)+"…":p.label, ...(selfScores?{Self:selfScores[p.key]||0}:{}), ...(peerScores?{Peers:peerScores[p.key]||0}:{}) }));
+      const cx=200, cy=200, r=140, n=PARAMS.length;
+      function pt(i, val) {
+        const angle = (Math.PI*2*i/n) - Math.PI/2;
+        const rr = (val/5)*r;
+        return [cx + rr*Math.cos(angle), cy + rr*Math.sin(angle)];
+      }
+      function polyPoints(scores, key) {
+        return PARAMS.map((p,i) => pt(i, scores[p.key]||0).join(",")).join(" ");
+      }
+      const gridLevels=[1,2,3,4,5];
       return (
         <div style={{ background:"#0d1e1c", border:"1px solid #1a3530", borderRadius:20, padding:22 }}>
           <h3 style={{ color:"#ddd", margin:"0 0 4px", fontSize:16, fontWeight:700 }}>🕸️ Radar View</h3>
           <p style={{ color:"#2a5050", fontSize:12, margin:"0 0 14px" }}>{hasBoth?"Overlap shows alignment between self and peer perception.":selfScores?"Your self-rating across all 10 dimensions.":"Peer average across all 10 dimensions."}</p>
-          <ResponsiveContainer width="100%" height={300}>
-            <RadarChart data={data} margin={{top:10,right:34,bottom:10,left:34}}>
-              <PolarGrid stroke="#1a3530"/>
-              <PolarAngleAxis dataKey="p" tick={{fill:"#555",fontSize:11}}/>
-              {selfScores  && <Radar name="Self"  dataKey="Self"  stroke="#F9A825" fill="#F9A825" fillOpacity={0.18} strokeWidth={2.5}/>}
-              {peerScores  && <Radar name="Peers" dataKey="Peers" stroke="#54A0FF" fill="#54A0FF" fillOpacity={0.14} strokeWidth={2}/>}
-            </RadarChart>
-          </ResponsiveContainer>
+          <svg viewBox="0 0 400 400" style={{ width:"100%", maxWidth:400, display:"block", margin:"0 auto" }}>
+            {gridLevels.map(lvl => (
+              <polygon key={lvl} points={PARAMS.map((_,i)=>pt(i,lvl).join(",")).join(" ")} fill="none" stroke="#1a3530" strokeWidth="1"/>
+            ))}
+            {PARAMS.map((_,i) => {
+              const [x,y]=pt(i,5);
+              return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#1a3530" strokeWidth="1"/>;
+            })}
+            {selfScores && <polygon points={polyPoints(selfScores)} fill="#F9A825" fillOpacity="0.18" stroke="#F9A825" strokeWidth="2.5" strokeLinejoin="round"/>}
+            {peerScores && <polygon points={polyPoints(peerScores)} fill="#54A0FF" fillOpacity="0.14" stroke="#54A0FF" strokeWidth="2" strokeLinejoin="round"/>}
+            {PARAMS.map((p,i) => {
+              const [x,y]=pt(i,5.7);
+              const anchor = x<cx-10?"end":x>cx+10?"start":"middle";
+              const label = p.label.length>12 ? p.label.slice(0,11)+"…" : p.label;
+              return <text key={i} x={x} y={y} textAnchor={anchor} fill="#555" fontSize="10" dominantBaseline="middle">{label}</text>;
+            })}
+          </svg>
           <div style={{ display:"flex", gap:20, justifyContent:"center", marginTop:6, flexWrap:"wrap" }}>
             {selfScores  && <span style={{ fontSize:12, color:"#F9A825" }}>● Self ({avgObj(selfScores)})</span>}
             {peerScores  && <span style={{ fontSize:12, color:"#54A0FF" }}>● Peers ({avgObj(peerScores)})</span>}
