@@ -89,19 +89,30 @@
 
     const PARAM_KEYS = PARAMS.map(p => p.key);
 
-    // ─── Local Storage ────────────────────────────────────────
+    // ─── JSONBin Cloud Storage ──────────────────────────────
     // Data shape: { feedback: { "reviewerId:revieweeId": { scores, strengthText, growthText, submittedAt } } }
-    const DB_KEY = "inprime_360_v1";
+    const JSONBIN_ID  = "69d28b9b856a682189006a1e";
+    const JSONBIN_KEY = "$2a$10$zD2j7f3UqUwpFGyaV8jwWOjuAHfsslleHDPeQcRxVm24rlEbjvqru";
+    const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`;
 
     async function dbRead() {
       try {
-        const raw = localStorage.getItem(DB_KEY);
-        return raw ? JSON.parse(raw) : { feedback: {} };
-      } catch(e) { return { feedback: {} }; }
+        const res = await fetch(`${JSONBIN_URL}/latest`, {
+          headers: { "X-MASTER-KEY": JSONBIN_KEY }
+        });
+        const json = await res.json();
+        return json.record || { feedback: {} };
+      } catch(e) { console.error("dbRead failed", e); return { feedback: {} }; }
     }
 
     async function dbWrite(data) {
-      localStorage.setItem(DB_KEY, JSON.stringify(data));
+      try {
+        await fetch(JSONBIN_URL, {
+          method: "PUT",
+          headers: { "X-MASTER-KEY": JSONBIN_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      } catch(e) { console.error("dbWrite failed", e); }
     }
 
     // ─── Submission Codes ─────────────────────────────────────
@@ -386,16 +397,9 @@
               </p>
               {!isSelf && <div style={{ background:"#0a1714", borderRadius:10, padding:"10px 18px", marginBottom:16, fontSize:12, color:"#2a5050", display:"inline-block" }}>🔒 Not linked to your identity</div>}
 
-              <div style={{ background:"#0a1714", border:`1px solid ${TEAL}30`, borderRadius:14, padding:16, marginBottom:20, textAlign:"left" }}>
-                <div style={{ fontSize:12, color:TEAL, fontWeight:700, marginBottom:6 }}>📤 Share your submission code with Rajat</div>
-                <div style={{ fontSize:9, color:"#1a4040", marginBottom:10, lineHeight:1.5 }}>Copy this code and send it via WhatsApp or Slack. Rajat will paste it to see your feedback in the dashboard.</div>
-                <div style={{ fontFamily:"monospace", fontSize:9, color:"#aaa", wordBreak:"break-all", background:"#060f0e", borderRadius:8, padding:"10px 12px", marginBottom:10, lineHeight:1.6, maxHeight:80, overflow:"hidden", textOverflow:"ellipsis" }}>
-                  {myCode.slice(0,120)}…
-                </div>
-                <button onClick={()=>{ navigator.clipboard.writeText(myCode).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2500); }); }}
-                  style={{ width:"100%", padding:"10px", background:copied?"#10AC8422":TEAL+"22", border:`1px solid ${copied?"#10AC84":TEAL}55`, borderRadius:9, color:copied?"#10AC84":TEAL, fontSize:13, fontWeight:700, cursor:"pointer" }}>
-                  {copied?"✓ Copied!":"📋 Copy Full Code"}
-                </button>
+              <div style={{ background:"#0a1714", border:`1px solid ${TEAL}30`, borderRadius:14, padding:16, marginBottom:20, textAlign:"center" }}>
+                <div style={{ fontSize:13, color:TEAL, fontWeight:700, marginBottom:6 }}>☁️ Saved to shared dashboard</div>
+                <div style={{ fontSize:12, color:"#2a6050", lineHeight:1.6 }}>Your response is live. Anyone on the team can see the aggregated results instantly — no codes needed.</div>
               </div>
 
               <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
@@ -570,7 +574,7 @@
             🔒 <span><strong>Anonymous</strong> — peer scores are averaged. No individual response is visible.</span>
           </div>
           {loading ? (
-            <div style={{ textAlign:"center", padding:60, color:"#3a5a54" }}>Loading feedback data…</div>
+            <div style={{ textAlign:"center", padding:60, color:"#3a5a54" }}>☁️ Loading from shared cloud…</div>
           ) : (
             <>
               <div style={{ background:`linear-gradient(135deg,${person.color}10,#0d1e1c)`, border:`1px solid ${person.color}30`, borderRadius:20, padding:22, marginBottom:16 }}>
@@ -782,8 +786,8 @@
       }
 
       async function handleClear() {
-        if (!window.confirm("Clear ALL feedback data from this device? This cannot be undone.")) return;
-        localStorage.removeItem(DB_KEY);
+        if (!window.confirm("Reset ALL feedback data in the shared database? This cannot be undone.")) return;
+        await dbWrite({ feedback: {} });
         setResult({ cleared: true });
       }
 
@@ -796,7 +800,7 @@
             </div>
 
             <div style={{ background:"#0a1714", border:"1px solid #10AC8430", borderRadius:12, padding:14, marginBottom:18, fontSize:12, color:"#2a6050", lineHeight:1.7 }}>
-              📱 <strong style={{ color:TEAL }}>How it works:</strong> Each team member copies their submission code after submitting. Paste all the codes here (one per line or comma-separated) to import them into the dashboard.
+              ☁️ <strong style={{ color:TEAL }}>Cloud-powered:</strong> All feedback is saved to a shared real-time database. The dashboard updates automatically for everyone — no codes needed. Use this panel to reset data for a new feedback cycle.
             </div>
 
             <label style={{ fontSize:12, fontWeight:700, color:"#aaa", display:"block", marginBottom:8 }}>Paste submission codes from your team</label>
@@ -817,13 +821,13 @@
             )}
             {result?.cleared && (
               <div style={{ marginTop:12, padding:"10px 14px", background:"#FF6B6B20", border:"1px solid #FF6B6B40", borderRadius:10, fontSize:13, color:"#FF6B6B", textAlign:"center" }}>
-                ✓ All local data cleared.
+                ✓ All feedback data has been reset.
               </div>
             )}
 
             <div style={{ borderTop:"1px solid #0f2520", marginTop:20, paddingTop:16 }}>
               <button onClick={handleClear} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid #FF6B6B40", borderRadius:10, color:"#FF6B6B88", fontSize:12, cursor:"pointer" }}>
-                🗑 Clear all local feedback data
+                🗑 Reset all feedback data (new cycle)
               </button>
             </div>
           </div>
