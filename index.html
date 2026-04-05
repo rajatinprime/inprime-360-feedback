@@ -700,8 +700,8 @@
           <button onClick={()=>setOpen(o=>!o)}
             style={{ width:"100%", background:"#0d1e1c", border:"1px solid #0f2520", borderRadius:open?"20px 20px 0 0":20, padding:"14px 18px", color:"#fff", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", textAlign:"left" }}>
             <div>
-              <div style={{ fontSize:11, color:"#1a4040", fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:2 }}>📚 Knowledge Base</div>
-              <div style={{ fontSize:12, color:"#1a3530" }}>Why peer reviews matter · Videos & articles</div>
+              <div style={{ fontSize:11, color:TEAL, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:2 }}>📚 Knowledge Base</div>
+              <div style={{ fontSize:12, color:"#4a8070" }}>Why peer reviews matter · Videos & articles</div>
             </div>
             <span style={{ color:TEAL, fontSize:20, transform:open?"rotate(90deg)":"none", transition:"transform 0.2s", lineHeight:1 }}>›</span>
           </button>
@@ -765,85 +765,17 @@
       );
     }
 
-    // ─── Admin Import Panel ───────────────────────────────────
-    function AdminPanel({ onClose }) {
-      const [codes, setCodes]   = useState("");
-      const [result, setResult] = useState(null);
-      const [loading, setLoading] = useState(false);
-      const m = useMobile();
-
-      async function handleImport() {
-        if (!codes.trim()) return;
-        setLoading(true);
-        const res = await importCodes(codes);
-        setResult(res);
-        setLoading(false);
-        if (res.ok > 0) setCodes("");
-      }
-
-      async function handleClear() {
-        if (!window.confirm("Reset ALL feedback data in the shared database? This cannot be undone.")) return;
-        await dbWrite({ feedback: {} });
-        setResult({ cleared: true });
-      }
-
-      return (
-        <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div style={{ background:"#0d1e1c", border:"1px solid #1a3530", borderRadius:20, padding:24, width:"100%", maxWidth:480, maxHeight:"90vh", overflowY:"auto" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-              <h2 style={{ color:"#fff", fontSize:17, fontWeight:800, margin:0 }}>🔐 Admin Panel</h2>
-              <button onClick={onClose} style={{ background:"none", border:"1px solid #1a3530", color:"#888", borderRadius:8, padding:"6px 12px", cursor:"pointer", fontSize:13 }}>✕ Close</button>
-            </div>
-
-            <div style={{ background:"#0a1714", border:"1px solid #10AC8430", borderRadius:12, padding:14, marginBottom:18, fontSize:12, color:"#2a6050", lineHeight:1.7 }}>
-              ☁️ <strong style={{ color:TEAL }}>Cloud-powered:</strong> All feedback is saved to a shared real-time database. The dashboard updates automatically for everyone — no codes needed. Use this panel to reset data for a new feedback cycle.
-            </div>
-
-            <label style={{ fontSize:12, fontWeight:700, color:"#aaa", display:"block", marginBottom:8 }}>Paste submission codes from your team</label>
-            <textarea value={codes} onChange={e=>{ setCodes(e.target.value); setResult(null); }} rows={6}
-              placeholder="Paste codes here, one per line…"
-              style={{ width:"100%", background:"#060f0e", border:"1px solid #1a3530", borderRadius:10, padding:"10px 12px", color:"#ccc", fontSize:11, fontFamily:"monospace", resize:"vertical", lineHeight:1.5 }}/>
-
-            <button onClick={handleImport} disabled={loading || !codes.trim()}
-              style={{ width:"100%", marginTop:10, padding:"12px", background:codes.trim()?TEAL:"#0f1e1c", border:"none", borderRadius:10, color:codes.trim()?"#fff":"#2a4040", fontSize:14, fontWeight:700, cursor:codes.trim()?"pointer":"not-allowed" }}>
-              {loading?"Importing…":"⬆ Import Codes"}
-            </button>
-
-            {result && !result.cleared && (
-              <div style={{ marginTop:12, padding:"10px 14px", background: result.ok>0?"#10AC8420":"#FF6B6B20", border:`1px solid ${result.ok>0?"#10AC8440":"#FF6B6B40"}`, borderRadius:10, fontSize:13, color: result.ok>0?TEAL:"#FF6B6B", textAlign:"center" }}>
-                {result.ok>0?`✓ ${result.ok} submission${result.ok!==1?"s":""} imported successfully!`:""}
-                {result.fail>0?` ${result.fail} code${result.fail!==1?"s":""} could not be read.`:""}
-              </div>
-            )}
-            {result?.cleared && (
-              <div style={{ marginTop:12, padding:"10px 14px", background:"#FF6B6B20", border:"1px solid #FF6B6B40", borderRadius:10, fontSize:13, color:"#FF6B6B", textAlign:"center" }}>
-                ✓ All feedback data has been reset.
-              </div>
-            )}
-
-            <div style={{ borderTop:"1px solid #0f2520", marginTop:20, paddingTop:16 }}>
-              <button onClick={handleClear} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid #FF6B6B40", borderRadius:10, color:"#FF6B6B88", fontSize:12, cursor:"pointer" }}>
-                🗑 Reset all feedback data (new cycle)
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     // ─── App ─────────────────────────────────────────────────
     function App() {
       const [view, setView]         = useState("home");
       const [selected, setSelected] = useState(null);
       const [search, setSearch]     = useState("");
-      const [adminOpen, setAdminOpen] = useState(false);
       const m = useMobile();
       const filtered = TEAM.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.role.toLowerCase().includes(search.toLowerCase()));
       const person = TEAM.find(p => p.id === selected);
       function goHome() { setView("home"); setSelected(null); }
       return (
         <div style={{ minHeight:"100vh", background:"#060f0e", color:"#fff" }}>
-          {adminOpen && <AdminPanel onClose={()=>setAdminOpen(false)}/>}
           <div style={{ borderBottom:"1px solid #0d1e1c", padding:m?"10px 14px":"13px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, background:"#060f0eee", backdropFilter:"blur(24px)", zIndex:100 }}>
             <div onClick={goHome} style={{ cursor:"pointer", flexShrink:0 }}>
               <div style={{ transform:m?"scale(0.78)":"scale(1)", transformOrigin:"left center" }}><InPrimeLogo/></div>
@@ -854,7 +786,6 @@
                   {m?"✏️ Feedback":"✏️ Give Feedback"}
                 </button>
               )}
-              <button onClick={()=>setAdminOpen(true)} title="Admin — import codes" style={{ padding:"8px 10px", background:"#0a1714", border:"1px solid #1a3530", borderRadius:10, color:"#2a5050", fontSize:13, cursor:"pointer", minHeight:44 }}>🔐</button>
               {!m && <div style={{ fontSize:10, color:"#1a3530", textAlign:"right" }}><div style={{ color:"#2a4a44" }}>360° Feedback</div><div>Core Team · Q2</div></div>}
             </div>
           </div>
