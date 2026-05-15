@@ -69,6 +69,15 @@
       { id:12, name:"Jagrithi K",           role:"Founding Member · HR",                              avatar:"JK", color:"#EC407A" },
     ];
 
+    // Team Health roster — adds co-founders on top of the founding team.
+    // Used ONLY by the Five Dysfunctions assessment; 360° Feedback continues to use TEAM.
+    const TEAM_HEALTH = [
+      { id:1,  name:"Rajat Singh",          role:"Co-founder",                                        avatar:"RS", color:"#16A085" },
+      { id:2,  name:"Sneh Thakur",          role:"Co-founder",                                        avatar:"ST", color:"#9B59B6" },
+      { id:3,  name:"Manish Raj",           role:"Co-founder",                                        avatar:"MR", color:"#3498DB" },
+      ...TEAM,
+    ];
+
     // ─── Parameters ──────────────────────────────────────────
     const PARAMS = [
       { key:"missionAlignment", label:"Mission Alignment", icon:"🌟", short:"Company-first over function-first",
@@ -889,7 +898,7 @@
       const [existing, setExisting] = useState(null);
       const m = useMobile();
 
-      const person = TEAM.find(p => p.id === reviewerId);
+      const person = TEAM_HEALTH.find(p => p.id === reviewerId);
 
       useEffect(() => {
         if (reviewerId) {
@@ -923,7 +932,7 @@
               <p style={{ color:"#b8cfca", fontSize:13, margin:"0 0 18px", lineHeight:1.6 }}>A 15-statement assessment of our team based on Patrick Lencioni's framework. Please be honest — the goal is to surface what we can improve together.</p>
               <div style={{ fontSize:12, color:"#9ab5af", fontWeight:700, marginBottom:10 }}>Who are you?</div>
               <div style={{ display:"grid", gridTemplateColumns:m?"repeat(2,1fr)":"repeat(3,1fr)", gap:8 }}>
-                {TEAM.map(p => (
+                {TEAM_HEALTH.map(p => (
                   <button key={p.id} onClick={()=>{ setReviewerId(p.id); setStep(2); }}
                     style={{ background:"#0a1714", border:"1px solid #1a3530", borderRadius:12, padding:m?"11px 8px":"13px 10px", cursor:"pointer", textAlign:"left", minHeight:56 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -1036,7 +1045,7 @@
       const submissions = Object.entries(dfData||{}).map(([id, v]) => ({ id:Number(id), ...v }));
       const N = submissions.length;
       const submittedIds = new Set(submissions.map(s => s.id));
-      const pending = TEAM.filter(p => !submittedIds.has(p.id));
+      const pending = TEAM_HEALTH.filter(p => !submittedIds.has(p.id));
       const results = DYSFUNCTIONS.map(d => {
         if (!N) return { ...d, avgTotal:0, band:classifyDysfunction(0), perQuestion:[] };
         let sum = 0;
@@ -1065,11 +1074,11 @@
             <div style={{ display:"grid", gridTemplateColumns:m?"1fr 1fr":"1fr 1fr 1fr", gap:10 }}>
               <div style={{ background:"#0a1714", borderRadius:10, padding:"10px 12px" }}>
                 <div style={{ color:"#b8cfca", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:0.8 }}>Responses</div>
-                <div style={{ color:"#fff", fontSize:22, fontWeight:800, marginTop:2 }}>{N} / {TEAM.length}</div>
+                <div style={{ color:"#fff", fontSize:22, fontWeight:800, marginTop:2 }}>{N} / {TEAM_HEALTH.length}</div>
               </div>
               <div style={{ background:"#0a1714", borderRadius:10, padding:"10px 12px" }}>
                 <div style={{ color:"#b8cfca", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:0.8 }}>Completion</div>
-                <div style={{ color:"#fff", fontSize:22, fontWeight:800, marginTop:2 }}>{TEAM.length ? Math.round(N/TEAM.length*100) : 0}%</div>
+                <div style={{ color:"#fff", fontSize:22, fontWeight:800, marginTop:2 }}>{TEAM_HEALTH.length ? Math.round(N/TEAM_HEALTH.length*100) : 0}%</div>
               </div>
               <div style={{ background:"#0a1714", borderRadius:10, padding:"10px 12px", gridColumn:m?"span 2":"auto" }}>
                 <div style={{ color:"#b8cfca", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:0.8 }}>Pending</div>
