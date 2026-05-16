@@ -910,9 +910,9 @@
       useEffect(() => {
         if (reviewerId) {
           loadMyDysfunction(reviewerId).then(prev => {
-            // Any existing record is treated as locked — answers are never pre-filled,
-            // so colleagues can't see them and the submitter can't edit themselves.
-            if (prev) { setExisting(prev); setAnswers({}); }
+            // Treat as locked only if there's a real submission (ignore Firebase array-quirk nulls / empty slots).
+            const real = prev && prev.answers && Object.keys(prev.answers).some(k => prev.answers[k]);
+            if (real) { setExisting(prev); setAnswers({}); }
             else { setExisting(null); setAnswers({}); }
           });
         }
@@ -1070,7 +1070,10 @@
     // ─── Team Assessment Admin View ─────────────────────────
     // Helper: compute aggregate dysfunction results from a {personId: {answers}} map
     function computeDysfunctionResults(dfData) {
-      const submissions = Object.entries(dfData||{}).map(([id, v]) => ({ id:Number(id), ...v }));
+      // Firebase array-quirk: empty slots come back as null; filter to real submissions only.
+      const submissions = Object.entries(dfData||{})
+        .filter(([id, v]) => v && v.answers && Object.keys(v.answers).some(k => v.answers[k]))
+        .map(([id, v]) => ({ id:Number(id), ...v }));
       const N = submissions.length;
       const submittedIds = new Set(submissions.map(s => s.id));
       const pending = TEAM_HEALTH.filter(p => !submittedIds.has(p.id));
@@ -1302,7 +1305,7 @@
               <div style={{ display:"grid", gridTemplateColumns:m?"1fr":"repeat(2,1fr)", gap:8 }}>
                 {TEAM_HEALTH.map(p => {
                   const submission = data[String(p.id)];
-                  const submitted = !!submission;
+                  const submitted = !!(submission && submission.answers && Object.keys(submission.answers).some(k => submission.answers[k]));
                   return (
                     <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"#0a1714", border:`1px solid ${submitted?"#1e403a":"#2a2a44"}`, borderRadius:10 }}>
                       <div style={{ width:32, height:32, borderRadius:"50%", background:p.color, color:"#fff", fontSize:11, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{p.avatar}</div>
