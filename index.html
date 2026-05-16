@@ -163,7 +163,7 @@
 
     async function saveDysfunctionSubmission(reviewerId, answers) {
       const data = await dfRead();
-      data[String(reviewerId)] = { answers, submittedAt: new Date().toISOString() };
+      data[String(reviewerId)] = { answers, submittedAt: new Date().toISOString(), locked: true };
       await dfWrite(data);
       return true;
     }
@@ -171,6 +171,13 @@
     async function loadMyDysfunction(reviewerId) {
       const data = await dfRead();
       return data[String(reviewerId)] || null;
+    }
+
+    async function resetOneDysfunction(reviewerId) {
+      try {
+        await fetch(`${"https://inprime-360-feedback-default-rtdb.asia-southeast1.firebasedatabase.app"}/dysfunction/${String(reviewerId)}.json`, { method:"DELETE" });
+        return true;
+      } catch(e) { console.error("resetOneDysfunction failed", e); return false; }
     }
 
     // ─── Archives ─────────────────────────────────────────────
@@ -903,7 +910,9 @@
       useEffect(() => {
         if (reviewerId) {
           loadMyDysfunction(reviewerId).then(prev => {
-            if (prev) { setExisting(prev); setAnswers(prev.answers || {}); }
+            // Any existing record is treated as locked — answers are never pre-filled,
+            // so colleagues can't see them and the submitter can't edit themselves.
+            if (prev) { setExisting(prev); setAnswers({}); }
             else { setExisting(null); setAnswers({}); }
           });
         }
@@ -970,6 +979,30 @@
         );
       }
 
+      // ── Step 2a: locked — already submitted ──
+      if (existing) {
+        return (
+          <div>
+            <button onClick={()=>setStep(1)} style={{ background:"transparent", border:"none", color:"#9ab5af", fontSize:13, cursor:"pointer", marginBottom:14, padding:"8px 0" }}>← Change person</button>
+            <div style={{ background:"#0f2320", border:"1px solid #1a3530", borderRadius:20, padding:m?20:30, textAlign:"center" }}>
+              <div style={{ fontSize:56, marginBottom:14 }}>🔒</div>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:14 }}>
+                <div style={{ width:36, height:36, borderRadius:"50%", background:person.color, color:"#fff", fontSize:13, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center" }}>{person.avatar}</div>
+                <div style={{ color:"#fff", fontSize:15, fontWeight:800 }}>{person.name}</div>
+              </div>
+              <h2 style={{ color:"#fff", fontSize:m?18:22, fontWeight:800, margin:"0 0 8px" }}>Already submitted</h2>
+              <p style={{ color:"#b8cfca", fontSize:13, lineHeight:1.6, maxWidth:420, margin:"0 auto 8px" }}>
+                {person.name.split(" ")[0]} submitted the team health check on {existing.submittedAt ? new Date(existing.submittedAt).toLocaleDateString() : "a previous date"}.
+              </p>
+              <p style={{ color:"#9ab5af", fontSize:12, lineHeight:1.6, maxWidth:420, margin:"0 auto 22px" }}>
+                Responses are locked so they stay private. If a change is needed, ask the admin to reset this entry.
+              </p>
+              <button onClick={()=>{ setReviewerId(null); setStep(1); }} style={{ background:TEAL, border:"none", borderRadius:11, color:"#fff", fontSize:14, fontWeight:700, padding:"11px 22px", cursor:"pointer" }}>Choose another person</button>
+            </div>
+          </div>
+        );
+      }
+
       // ── Step 2: questionnaire ──
       const scaleLabels = { 1:"Rarely", 2:"Sometimes", 3:"Usually" };
       return (
@@ -983,11 +1016,6 @@
                 <div style={{ color:"#9ab5af", fontSize:11 }}>Rating the team</div>
               </div>
             </div>
-            {existing && (
-              <div style={{ padding:"8px 12px", background:"#1a3530", borderRadius:8, fontSize:12, color:"#b8cfca", marginTop:8 }}>
-                You submitted on {new Date(existing.submittedAt).toLocaleDateString()} — changes will overwrite.
-              </div>
-            )}
             <div style={{ marginTop:14, display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ flex:1, height:6, background:"#0a1714", borderRadius:3, overflow:"hidden" }}>
                 <div style={{ width:`${(answered/15)*100}%`, height:"100%", background:TEAL, transition:"width 0.2s" }}/>
@@ -1206,6 +1234,14 @@
         setBusy(false);
       }
 
+      async function handleResetOne(personId, personName) {
+        if (!confirm(`Reset ${personName}'s Team Health response? They'll be able to submit again. This cannot be undone.`)) return;
+        setBusy(true);
+        try { await resetOneDysfunction(personId); await refreshAll(); notify(`${personName}'s response reset.`); }
+        catch(e) { notify("Reset failed — check console"); console.error(e); }
+        setBusy(false);
+      }
+
       if (!authed) {
         return (
           <div>
@@ -1255,6 +1291,38 @@
 
           {!loading && (
             <DysfunctionBreakdown data={dataToShow} label={isCurrent?"Admin · Current Cycle":`Archived · ${viewing}`} m={m}/>
+          )}
+
+          {/* Per-person reset — only when viewing current cycle */}
+          {!loading && isCurrent && (
+            <div style={{ background:"#122b28", border:"1px solid #1e403a", borderRadius:16, padding:m?14:18, marginBottom:16, marginTop:8 }}>
+              <div style={{ fontSize:11, color:TEAL, fontWeight:800, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>👥 Respondents</div>
+              <h3 style={{ color:"#fff", fontSize:15, fontWeight:800, margin:"0 0 6px" }}>Individual responses</h3>
+              <p style={{ color:"#b8cfca", fontSize:12, lineHeight:1.55, margin:"0 0 14px" }}>Submitted responses are locked. Use Reset to unlock a specific person so they can submit again — only that one entry is cleared.</p>
+              <div style={{ display:"grid", gridTemplateColumns:m?"1fr":"repeat(2,1fr)", gap:8 }}>
+                {TEAM_HEALTH.map(p => {
+                  const submission = data[String(p.id)];
+                  const submitted = !!submission;
+                  return (
+                    <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"#0a1714", border:`1px solid ${submitted?"#1e403a":"#2a2a44"}`, borderRadius:10 }}>
+                      <div style={{ width:32, height:32, borderRadius:"50%", background:p.color, color:"#fff", fontSize:11, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{p.avatar}</div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ color:"#fff", fontSize:13, fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
+                        <div style={{ color:submitted?TEAL:"#7a9994", fontSize:11, fontWeight:600 }}>
+                          {submitted ? `🔒 Submitted · ${submission.submittedAt ? new Date(submission.submittedAt).toLocaleDateString() : ""}` : "Not yet"}
+                        </div>
+                      </div>
+                      {submitted && (
+                        <button onClick={()=>handleResetOne(p.id, p.name)} disabled={busy}
+                          style={{ padding:"6px 10px", background:"transparent", border:"1px solid #EF4444", borderRadius:7, color:"#EF4444", fontSize:11, fontWeight:700, cursor:busy?"not-allowed":"pointer", opacity:busy?0.5:1, flexShrink:0 }}>
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {/* 360° feedback summary - only show for archived cycles since current data is per-person */}
